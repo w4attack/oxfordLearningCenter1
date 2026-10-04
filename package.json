@@ -11,7 +11,8 @@
     "test:ui": "node tools/interaction-test.js",
     "test:map": "node tools/map-resilience-test.js",
     "test:labels": "node tools/map-labels-test.js",
-    "test": "npm run check && npm run test:ui && npm run test:labels && npm run test:map && npm run test:render"
+    "test:overflow": "node tools/overflow-test.js && node tools/overflow-detail.js",
+    "test": "npm run check && npm run test:ui && npm run test:labels && npm run test:map && npm run test:overflow && npm run test:render"
   },
   "devDependencies": {
     "tailwindcss": "3.4.17"

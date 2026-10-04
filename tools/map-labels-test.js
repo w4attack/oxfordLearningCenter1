@@ -46,13 +46,39 @@ const ok = (name, pass, extra) => {
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 900 });
   await page.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch (e) {} });
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    const t = m.text();
+    // временные сетевые сбои загрузки ресурсов — не ошибки скриптов
+    if (/ERR_NETWORK_CHANGED|ERR_INTERNET_DISCONNECTED|ERR_CONNECTION|Failed to load resource/i.test(t)) return;
+    errors.push('console: ' + t);
+  });
+
+  // ждём появления слоя тайлов Leaflet, чтобы не зависеть от скорости сети
+  const waitForTiles = async (label) => {
+    try {
+      await page.waitForFunction(() => {
+        const p = document.querySelector('#map .leaflet-tile-pane');
+        return !!p && document.querySelectorAll('#map img.leaflet-tile').length > 0;
+      }, { timeout: 30000, polling: 500 });
+      return true;
+    } catch (e) {
+      log.push('FAIL ' + label + ' -> слой тайлов не появился за 30 с');
+      return false;
+    }
+  };
+
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.evaluate(() => document.getElementById('location').scrollIntoView());
-  await new Promise((r) => setTimeout(r, 6000));
+  if (!(await waitForTiles('тайлы загрузились'))) {
+    console.log(log.join('\n'));
+    await browser.close();
+    process.exit(1);
+  }
+  await new Promise((r) => setTimeout(r, 2500));
 
   const shell = await page.$('.map-shell');
 
@@ -116,11 +142,12 @@ const ok = (name, pass, extra) => {
   ok('z20: нет серой пустой плитки', deepShot.edges >= 6 && deepShot.colorPct >= 1, deepShot);
   await page.screenshot({ path: path.join(path.resolve(__dirname, '..', '.preview'), 'labels-z20.png') });
 
-  await page.evaluate(() => {
-    if (window.__olcMap) window.__olcMap.setZoom(18);
-    document.querySelector('.map-style-btn[data-map-style="light"]').click();
-  });
-  await new Promise((r) => setTimeout(r, 4500));
+  await page.evaluate(() => { if (window.__olcMap) window.__olcMap.setZoom(18); });
+  await new Promise((r) => setTimeout(r, 3500));
+  await page.click('.map-style-btn[data-map-style="light"]');
+  await new Promise((r) => setTimeout(r, 3000));
+  await waitForTiles('стиль Светлая переключился');
+  await new Promise((r) => setTimeout(r, 2000));
   const light = await page.evaluate(() => ({
     status: document.getElementById('map-status-text').textContent,
     filter: getComputedStyle(document.querySelector('#map .leaflet-tile-pane')).filter,
@@ -130,8 +157,10 @@ const ok = (name, pass, extra) => {
   calibration.lightZ18 = analyze(await shell.screenshot({ type: 'png' }));
   await page.screenshot({ path: path.join(path.resolve(__dirname, '..', '.preview'), 'labels-light.png') });
 
-  await page.evaluate(() => document.querySelector('.map-style-btn[data-map-style="satellite"]').click());
-  await new Promise((r) => setTimeout(r, 4500));
+  await page.click('.map-style-btn[data-map-style="satellite"]');
+  await new Promise((r) => setTimeout(r, 3000));
+  await waitForTiles('стиль Спутник переключился');
+  await new Promise((r) => setTimeout(r, 2000));
   const sat = await page.evaluate(() => ({
     status: document.getElementById('map-status-text').textContent,
     filter: getComputedStyle(document.querySelector('#map .leaflet-tile-pane')).filter,
