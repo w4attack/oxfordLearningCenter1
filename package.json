@@ -1,0 +1,24 @@
+{
+  "name": "oxford-learning-centre",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Landing page учебного центра Oxford Learning Centre",
+  "scripts": {
+    "build": "tailwindcss -c tailwind.config.js -i src/input.css -o dist/app.css --minify && node tools/inline-css.js",
+    "watch": "tailwindcss -c tailwind.config.js -i src/input.css -o dist/app.css --watch",
+    "check": "node tools/check.js && node tools/validate.js && node tools/audit-css.js",
+    "test:render": "node tools/render-test.js",
+    "test:ui": "node tools/interaction-test.js",
+    "test:map": "node tools/map-resilience-test.js",
+    "test:labels": "node tools/map-labels-test.js",
+    "test": "npm run check && npm run test:ui && npm run test:labels && npm run test:map && npm run test:render"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  },
+  "dependencies": {
+    "node-html-parser": "^9.0.4",
+    "pngjs": "^7.0.0",
+    "puppeteer": "^25.12.0"
+  }
+}
